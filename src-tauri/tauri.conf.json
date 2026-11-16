@@ -1,0 +1,60 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Orbit",
+  "version": "0.1.0",
+  "identifier": "io.github.can5.orbit",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Orbit",
+        "width": 1180,
+        "height": 760,
+        "minWidth": 960,
+        "minHeight": 620,
+        "resizable": true,
+        "decorations": true,
+        "visible": true
+      },
+      {
+        "label": "island",
+        "title": "Orbit Island",
+        "width": 420,
+        "height": 300,
+        "minWidth": 420,
+        "minHeight": 300,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "focus": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/512x512.png",
+      "icons/icon.ico",
+      "icons/icon.icns"
+    ],
+    "category": "Utility",
+    "shortDescription": "Your desktop, organized around you.",
+    "longDescription": "Orbit is a privacy-first, open-source desktop assistant that unifies everyday utilities — an interactive island, clipboard history, file staging, batch renaming, screen tools, link management and more — behind one premium, local-first shell."
+  }
+}

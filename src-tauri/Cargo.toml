@@ -1,0 +1,24 @@
+[package]
+name = "orbit-tauri"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Tauri shell for Orbit: windows, IPC and platform adapters. All real logic lives in orbit-core."
+
+[[bin]]
+name = "orbit"
+path = "src/main.rs"
+
+[lib]
+name = "orbit_tauri_lib"
+crate-type = ["lib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+orbit-core = { path = "../crates/orbit-core" }
+tauri = { version = "2", features = [] }
+serde = { workspace = true }
+serde_json = { workspace = true }

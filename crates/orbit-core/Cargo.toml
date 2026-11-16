@@ -1,0 +1,13 @@
+[package]
+name = "orbit-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Platform-independent application logic for Orbit. No GUI or OS-integration dependencies; safe to use on desktop and (future) Android."
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+rusqlite.workspace = true

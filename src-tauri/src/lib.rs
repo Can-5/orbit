@@ -1,0 +1,74 @@
+//! Orbit Tauri shell.
+//!
+//! Thin layer: opens the SQLite database, wires IPC commands to
+//! `orbit-core`, and owns window/platform decisions. No business logic here.
+
+mod commands;
+mod platform;
+
+use std::sync::Mutex;
+
+use orbit_core::{island::IslandManager, settings::IslandMode, storage::Database};
+use tauri::Manager;
+
+/// Shared application state. All locks are short-lived; commands clone what they need.
+pub struct AppState {
+    pub db: Mutex<Database>,
+    pub island: Mutex<IslandManager>,
+}
+
+pub fn run() {
+    tauri::Builder::default()
+        .setup(|app| {
+            let data_dir = app
+                .path()
+                .app_data_dir()
+                .map_err(|e| format!("cannot resolve app data dir: {e}"))?;
+            std::fs::create_dir_all(&data_dir)?;
+            let db_path = data_dir.join("orbit.db");
+            let db = Database::open(&db_path)
+                .map_err(|e| format!("cannot open database at {}: {e}", db_path.display()))?;
+            let settings = db.load_settings().unwrap_or_default();
+            app.manage(AppState {
+                db: Mutex::new(db),
+                island: Mutex::new(IslandManager::new()),
+            });
+
+            // Overlay island only when enabled/allowed. On Linux the auto mode
+            // prefers the honest in-app island; overlay must be opted into.
+            let wants_overlay = settings.island.enabled
+                && match settings.island.mode {
+                    IslandMode::InApp => false,
+                    IslandMode::Overlay => true,
+                    IslandMode::Auto => platform::overlay_island_supported(),
+                };
+            if wants_overlay {
+                if let Some(win) = app.get_webview_window("island") {
+                    let _ = win.show();
+                }
+            }
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::settings::get_settings,
+            commands::settings::save_settings,
+            commands::permissions::list_permissions,
+            commands::permissions::set_permission,
+            commands::capabilities::get_capabilities,
+            commands::modules::list_modules,
+            commands::app::app_info,
+            commands::island::island_snapshot,
+            commands::island::island_tick,
+            commands::island::island_push_toast,
+            commands::island::island_dismiss,
+            commands::island::island_dismiss_active,
+            commands::island::island_toggle_expand,
+            commands::island::island_set_expanded,
+            commands::island::island_start_timer,
+            commands::island::island_cancel_timer,
+            commands::island::island_toggle_timer_pause,
+        ])
+        .build(tauri::generate_context!())
+        .expect("error while building Orbit")
+        .run(|_app, _event| {});
+}

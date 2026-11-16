@@ -1,0 +1,18 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  orbit-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --locked -p orbit-core
+      - run: cargo build --locked -p orbit-core --release
+
+  # The Tauri shell requires system WebKitGTK/GTK dev packages and is not
+  # built in CI yet. The frontend is not implemented. See docs/limitations.md.
