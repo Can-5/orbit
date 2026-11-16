@@ -4,7 +4,9 @@
 
 Orbit is a privacy-first, open-source desktop companion for Linux (KDE/GNOME), Windows 10/11, and macOS. It unifies twelve focused projects into one coherent experience — without a framework of forced dependencies, without telemetry, and without accounts.
 
-**Honest status:** *pre-alpha / Phase 1.* Orbit launches and runs today as a Rust workspace; the island engine, settings, permissions, and storage are implemented and tested (`orbit-core`, 7 tests green). The Tauri desktop shell is written but **has not been built on this machine** — it needs system WebKitGTK development packages that are not installed (see [Build](#build)). The Svelte frontend is not implemented yet. Module repos stand alone and ship their own domain logic + tests; wiring them into the host is Phase 2.
+**Honest status:** *pre-alpha / Phase 1.* Orbit launches and runs today as a Rust workspace; the island engine, settings, permissions, and storage are implemented and tested (`orbit-core`, 7 tests green). The Tauri desktop shell is written but **has not been built on this machine** — it needs system WebKitGTK development packages that are not installed (see [Build](#build)). The Svelte frontend **is implemented** (shell UI: dashboard, modules, island preview, permissions, capabilities, settings — static preview mode outside the Tauri host) but the shell has not been built, so live data is untested. Module repos stand alone and ship their own domain logic + tests; wiring them into the host is Phase 2.
+
+![Orbit UI — browser preview](assets/screenshot.jpg)
 
 ## The ecosystem (12 repositories)
 
@@ -59,7 +61,7 @@ cargo test -p orbit-core
 # Then: cargo run -p orbit-tauri
 ```
 
-The frontend (Svelte + TypeScript) is scaffolded but not implemented; the shell currently serves an empty `dist/` by design.
+The Svelte frontend is implemented: `pnpm install && pnpm build` (or `pnpm dev` → http://localhost:1420). Outside the Tauri host it runs in an explicitly-labeled static preview mode; live modules/permissions/settings data requires the Tauri shell (`cargo run -p orbit-tauri`), which needs the WebKitGTK dev packages above. `pnpm check` (svelte-check) is clean and the production build succeeds.
 
 ## Integration: Orbit Module Protocol v1 (draft)
 
