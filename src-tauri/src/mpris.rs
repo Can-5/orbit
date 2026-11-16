@@ -11,7 +11,7 @@
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use orbit_core::island::NowPlaying;
 

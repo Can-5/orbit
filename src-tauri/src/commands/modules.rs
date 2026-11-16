@@ -29,11 +29,11 @@ pub fn list_modules(state: State<'_, AppState>) -> CmdResult<Vec<ModuleDto>> {
     Ok(modules()
         .into_iter()
         .map(|m| ModuleDto {
+            enabled: !disabled.contains(&m.id),
             id: m.id,
             name: m.name,
             description: m.description,
             phase: m.phase,
-            enabled: !disabled.contains(&m.id),
             implemented: m.phase == 1,
             required_permissions: m.required_permissions,
         })
