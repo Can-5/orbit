@@ -362,3 +362,17 @@ table.caps th { color: var(--text-dim); font-weight: 600; }
 .island-actions kbd { opacity: 0.75; font-size: 0.75em; }
 .island-stage:has(.island.ambient) { height: auto; min-height: 260px; overflow: visible; padding: 1rem 0; align-items: flex-start; }
 .island-stage:has(.island.ambient) .island { position: relative; top: auto; transform: none; margin: 0 auto; }
+
+/* ---------- Island media controls / system stats ---------- */
+.media-row { display: flex; gap: 0.4rem; margin-top: 0.35rem; }
+.media-btn { width: 2.15rem; height: 2.15rem; border-radius: 0.65rem; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); font-size: 0.95rem; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+.media-btn:hover:not(:disabled) { border-color: var(--accent); }
+.media-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.media-toggle { background: var(--accent); border-color: var(--accent); color: #0b0d14; min-width: 2.6rem; font-size: 1.05rem; }
+.media-toggle:disabled { background: var(--panel-2); color: var(--text-dim); }
+.vol-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.45rem; }
+.vol-row input[type="range"] { flex: 1; accent-color: var(--accent); }
+.vol-off { font-style: italic; }
+.sys-row { display: flex; align-items: center; gap: 0.5rem; }
+.sys-row .sys-name { width: 2.4rem; font-size: 0.75rem; color: var(--text-dim); letter-spacing: 0.05em; }
+.sys-row .progress { flex: 1; }

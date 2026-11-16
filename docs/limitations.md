@@ -24,6 +24,15 @@ KDE is the best-supported Linux path, with caveats:
 - Global shortcuts on Wayland need the XDG GlobalShortcuts portal. Plasma ships it, but Orbit does not implement the portal client yet. That is Phase 5 work. Until then, shortcuts work inside the app only (`Ctrl+Space` toggles the island, `1`-`5` start timers, `Esc` collapses).
 - KWin rules can pin the island window. That is a manual setup; Orbit does not edit your KWin configuration without your approval.
 
+## Island ambient bridges (Linux)
+
+The MPRIS bridge and the CPU/RAM row are Linux-only today and honest about it:
+
+- Media controls (`⏮ ⏯ ⏭`, volume slider) go over MPRIS to the player over the session bus. The player must expose `PlaybackControl` and (for volume) `Volume`, or the row does nothing and shows no stale state. Browsers that route media through MPRIS work; standalone video players without MPRIS support do not.
+- The first CPU reading after launch is 0 until two `/proc/stat` samples are taken about 2 seconds apart. That is the kernel's accounting, not a placeholder UI.
+- The downloads watcher tracks top-level regular files in your XDG download directory (`~/İndirilenler` here, from `~/.config/user-dirs.dirs`). It sees name and size only, never file contents, and it cannot see downloads that bypass the directory or browsers that never write regular files there.
+- No bridge changes your system configuration. KDE extras (shortcuts, KWin rules) stay manual and documented.
+
 ## Known hard limits
 
 - **Wayland global hotkeys**: no standard. KDE uses KWin D-Bus, GNOME uses Shell extensions only. Without them, in-app shortcuts only.

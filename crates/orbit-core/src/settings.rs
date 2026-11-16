@@ -71,6 +71,8 @@ pub struct IslandSettings {
     pub sounds: bool,
     /// Which quick actions appear in the island's expanded view.
     pub quick_actions: Vec<String>,
+    /// Show the coarse local CPU/RAM row in the expanded island. Local samples only.
+    pub system_stats: bool,
 }
 
 impl Default for IslandSettings {
@@ -89,6 +91,7 @@ impl Default for IslandSettings {
                 "focus_timer_10".to_string(),
                 "ghostdrop_toggle".to_string(),
             ],
+            system_stats: true,
         }
     }
 }

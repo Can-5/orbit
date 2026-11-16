@@ -8,6 +8,8 @@ mod commands;
 mod downloads;
 #[cfg(target_os = "linux")]
 mod mpris;
+#[cfg(target_os = "linux")]
+mod sysmon;
 mod platform;
 
 use std::sync::Mutex;
@@ -59,7 +61,10 @@ pub fn run() {
             if settings.island.enabled {
                 let handle = app.handle().clone();
                 mpris::start(handle.clone());
-                downloads::start(handle);
+                downloads::start(handle.clone());
+                if settings.island.system_stats {
+                    sysmon::start(handle);
+                }
             }
             Ok(())
         })
@@ -84,6 +89,10 @@ pub fn run() {
             commands::island::island_toggle_timer_pause,
             commands::island::island_drop_files,
             commands::island::island_clear_dropped_files,
+            commands::island::island_media_toggle,
+            commands::island::island_media_next,
+            commands::island::island_media_prev,
+            commands::island::island_set_media_volume,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Orbit")

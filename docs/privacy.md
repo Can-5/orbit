@@ -17,6 +17,10 @@ Orbit keeps one promise: nothing leaves your machine, and nothing happens withou
 - Bookmarks (LinkNest): local files. Export only when you ask.
 - Themes (ThemePort): local packs, strict parsing, no executable fields.
 
+## Local system samples (Linux)
+
+The island can show a CPU/RAM readout. It reads `/proc/stat` and `/proc/meminfo` every 2 seconds and keeps the sample in memory for the island UI. Nothing is written to disk, logged or transmitted. The readout is a toggle in Settings ("CPU/RAM satırı", on by default with the island). The sampler only starts when the island is enabled. It collects no per-process data.
+
 ## How permissions work (explicit-grant registry)
 
 Orbit ships a `permissions` table. Every permission starts denied. You grant or revoke each one explicitly, and any feature that touches the capability requires it. A module cannot use a capability its host never granted. Orbit also logs nothing about how you use your grants.

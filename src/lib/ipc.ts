@@ -34,6 +34,38 @@ export interface ModuleDto {
 	requiredPermissions: string[];
 }
 
+export interface NowPlaying {
+	player: string;
+	title: string;
+	artist: string;
+	position_secs: number;
+	length_secs: number | null;
+	playing: boolean;
+	/** 0..=1 if the player exposes it; never guessed. */
+	volume?: number | null;
+}
+
+export interface DownloadTask {
+	id: string;
+	label: string;
+	received_bytes: number;
+	total_bytes: number | null;
+	done: boolean;
+}
+
+export interface DroppedFile {
+	path: string;
+	bytes: number;
+}
+
+/** AppPulse-style local sample: CPU/RAM of this machine, from /proc. */
+export interface SystemStats {
+	cpu_percent: number;
+	ram_percent: number;
+	ram_used_mb: number;
+	ram_total_mb: number;
+}
+
 /** Static mirror of the shell registry — only used with the Tauri host offline. */
 const PREVIEW_MODULES: ModuleDto[] = [
 	{ id: 'orbit_island', name: 'Orbit Island', description: 'Etkileşimli bildirim ve etkinlik adası.', phase: 1, enabled: true, implemented: true,  requiredPermissions: [] },
@@ -57,28 +89,6 @@ export async function listModules(): Promise<{ modules: ModuleDto[]; live: boole
 
 /* ---------- Island ambient snapshot (host-pushed; never invented) ---------- */
 
-export interface NowPlaying {
-	player: string;
-	title: string;
-	artist: string;
-	position_secs: number;
-	length_secs: number | null;
-	playing: boolean;
-}
-
-export interface DownloadTask {
-	id: string;
-	label: string;
-	received_bytes: number;
-	total_bytes: number | null;
-	done: boolean;
-}
-
-export interface DroppedFile {
-	path: string;
-	bytes: number;
-}
-
 /** serde snake_case keys, matching orbit_core::island::IslandSnapshot. */
 export interface IslandSnapshot {
 	view: 'collapsed' | 'expanded';
@@ -89,10 +99,28 @@ export interface IslandSnapshot {
 	downloads: DownloadTask[];
 	downloads_active: number;
 	dropped_files: DroppedFile[];
+	system?: SystemStats | null;
 }
 
 export async function islandSnapshot(): Promise<IslandSnapshot | null> {
 	return ipc<IslandSnapshot>('island_snapshot');
+}
+
+/** Media + volume commands return (). Errors land in the console via ipc(). */
+export async function islandMediaToggle(): Promise<void> {
+	await ipc<void>('island_media_toggle');
+}
+
+export async function islandMediaNext(): Promise<void> {
+	await ipc<void>('island_media_next');
+}
+
+export async function islandMediaPrev(): Promise<void> {
+	await ipc<void>('island_media_prev');
+}
+
+export async function islandSetMediaVolume(volume: number): Promise<void> {
+	await ipc<void>('island_set_media_volume', { volume });
 }
 
 export async function islandDropFiles(paths: string[]): Promise<IslandSnapshot | null> {

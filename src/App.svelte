@@ -2,7 +2,8 @@
   import { onMount, onDestroy } from "svelte";
   import {
     inTauri, listModules, ipc, islandSnapshot, islandDropFiles, islandClearDroppedFiles, islandStartTimer,
-    type ModuleDto, type IslandSnapshot, type DownloadTask,
+    islandMediaToggle, islandMediaNext, islandMediaPrev, islandSetMediaVolume,
+    type ModuleDto, type IslandSnapshot, type DownloadTask, type SystemStats,
   } from "./lib/ipc";
 
   // ---------- navigation ----------
@@ -26,6 +27,7 @@
   let accent = $state("#6c8cff");
   let reduceMotion = $state(false);
   let islandMode: "inApp" | "overlay" | "auto" = $state("auto");
+  let systemStatsEnabled = $state(true);
   const ACCENTS = ["#6c8cff", "#8a5cf6", "#3ddc84", "#ffc857", "#ff8fa3", "#38bdf8"];
 
   function resolvedTheme(): "dark" | "light" {
@@ -81,7 +83,7 @@
 
   type AppSettings = {
     themeMode: string; accent: string; density: string; reduceMotion: boolean;
-    island: { enabled: boolean; mode: "inApp" | "overlay" | "auto" };
+    island: { enabled: boolean; mode: "inApp" | "overlay" | "auto"; system_stats?: boolean };
     disabledModules: string[];
   };
   let hostSettings: AppSettings | null = $state(null);
@@ -90,6 +92,7 @@
     theme = (localStorage.getItem("orbit.theme") as ThemeMode) || "dark";
     density = (localStorage.getItem("orbit.density") as Density) || "comfortable";
     accent = localStorage.getItem("orbit.accent") || "#6c8cff";
+    systemStatsEnabled = localStorage.getItem("orbit.system_stats") !== "false";
   }
 
   async function hydrateFromHost() {
@@ -101,6 +104,7 @@
       accent = s.accent;
       reduceMotion = s.reduceMotion;
       islandMode = s.island.mode;
+      systemStatsEnabled = s.island.system_stats ?? true;
       return true;
     }
     return false;
@@ -110,14 +114,15 @@
     const merged: AppSettings = {
       ...(hostSettings ?? {
         themeMode: "dark", accent: "#6c8cff", density: "comfortable", reduceMotion: false,
-        island: { enabled: true, mode: "auto" }, disabledModules: [],
+        island: { enabled: true, mode: "auto", system_stats: systemStatsEnabled }, disabledModules: [],
       }),
       themeMode: theme,
       density,
       accent,
       reduceMotion,
-      island: { ...(hostSettings?.island ?? { enabled: true, mode: "auto" }), mode: islandMode },
+      island: { ...(hostSettings?.island ?? { enabled: true, mode: "auto" }), mode: islandMode, system_stats: systemStatsEnabled },
     };
+    localStorage.setItem("orbit.system_stats", String(systemStatsEnabled));
     hostSettings = merged;
     if (inTauri) {
       const saved = await ipc<AppSettings>("save_settings", { settings: merged });
@@ -236,7 +241,8 @@
   let unlistenDrop: (() => void) | null = null;
 
   // Static sample, browser preview only — clearly labeled "önizleme" in the UI.
-  const PREVIEW_NOW_PLAYING = { player: "preview", title: "Blinding Lights", artist: "The Weeknd", position_secs: 74, length_secs: 200, playing: true };
+  const PREVIEW_NOW_PLAYING = { player: "preview", title: "Blinding Lights", artist: "The Weeknd", position_secs: 74, length_secs: 200, playing: true, volume: 0.62 };
+  const PREVIEW_SYSTEM: SystemStats = { cpu_percent: 12, ram_percent: 34, ram_used_mb: 5400, ram_total_mb: 16000 };
   const PREVIEW_DOWNLOADS: DownloadTask[] = [
     { id: "preview-1", label: "proje-sunumu.pdf", received_bytes: 4_600_000, total_bytes: 8_400_000, done: false },
     { id: "preview-2", label: "orbit-logo.svg", received_bytes: 92_000, total_bytes: 92_000, done: true },
@@ -245,6 +251,11 @@
   let nowPlaying = $derived(liveHost ? (snapshot?.now_playing ?? null) : PREVIEW_NOW_PLAYING);
   let downloads = $derived(liveHost ? (snapshot?.downloads ?? []) : PREVIEW_DOWNLOADS);
   let droppedFiles = $derived(liveHost ? (snapshot?.dropped_files ?? []) : droppedPreview);
+  let systemStats = $derived(liveHost ? (snapshot?.system ?? null) : (systemStatsEnabled ? PREVIEW_SYSTEM : null));
+  // Volume display: the player's value unless the user just dragged the slider;
+  // the host pushes MPRIS Volume on its 2 s poll anyway.
+  let volumeOverride = $state<number | null>(null);
+  let displayedVolume = $derived(volumeOverride ?? nowPlaying?.volume ?? null);
 
   function fmtBytes(b: number): string {
     if (b < 1024) return `${b} B`;
@@ -423,6 +434,31 @@
                   {:else}
                     <div class="np-meta">{fmtDuration(nowPlaying.position_secs)}</div>
                   {/if}
+                  <div class="media-row">
+                    <button class="media-btn" onclick={() => islandMediaPrev()} disabled={!liveHost} aria-label="Önceki parça" title={liveHost ? "Önceki" : "Medya tuşları yalnızca Tauri kabuğunda çalışır"}>⏮</button>
+                    <button class="media-btn media-toggle" onclick={() => islandMediaToggle()} disabled={!liveHost} aria-label={nowPlaying.playing ? "Durdur" : "Oynat"} title={liveHost ? (nowPlaying.playing ? "Durdur/Duraklat" : "Oynat") : "Medya tuşları yalnızca Tauri kabuğunda çalışır"}>{nowPlaying.playing ? "⏸" : "▶"}</button>
+                    <button class="media-btn" onclick={() => islandMediaNext()} disabled={!liveHost} aria-label="Sonraki parça" title={liveHost ? "Sonraki" : "Medya tuşları yalnızca Tauri kabuğunda çalışır"}>⏭</button>
+                  </div>
+                  {#if displayedVolume !== null}
+                    <label class="vol-row">
+                      <span class="np-meta">Ses</span>
+                      <input type="range" min="0" max="100" step="1" value={Math.round((displayedVolume ?? 0) * 100)} disabled={!liveHost}
+                        oninput={(e) => { const v = Number((e.currentTarget as HTMLInputElement).value) / 100; volumeOverride = v; islandSetMediaVolume(v); }}
+                        aria-label="Medya sesi" />
+                      <span class="mono np-meta">{Math.round((displayedVolume ?? 0) * 100)}</span>
+                    </label>
+                  {:else if !liveHost}
+                    <div class="np-meta vol-off">Ses: oyuncu MPRIS üzerinde ses bildirmiyor (önizlemede sabit örnek gösterilmez).</div>
+                  {/if}
+                </div>
+              {/if}
+
+              {#if systemStats}
+                <div class="ambient-section">
+                  <div class="ambient-label">Sistem {liveHost ? "" : "(önizleme)"}</div>
+                  <div class="sys-row"><span class="sys-name">CPU</span><div class="progress"><div class="progress-fill" style="width:{Math.min(100, systemStats.cpu_percent)}%"></div></div><span class="mono np-meta">{systemStats.cpu_percent.toFixed(0)}%</span></div>
+                  <div class="sys-row"><span class="sys-name">RAM</span><div class="progress"><div class="progress-fill" style="width:{Math.min(100, systemStats.ram_percent)}%"></div></div><span class="mono np-meta">{systemStats.ram_percent.toFixed(0)}%</span></div>
+                  <div class="np-meta">{systemStats.ram_used_mb.toLocaleString("tr-TR")} MB / {systemStats.ram_total_mb.toLocaleString("tr-TR")} MB · yalnızca bu makine, hiçbir yere gönderilmez</div>
                 </div>
               {/if}
 
@@ -460,7 +496,7 @@
                 </div>
               {/if}
 
-              {#if !nowPlaying && downloads.length === 0 && droppedFiles.length === 0}
+              {#if !nowPlaying && downloads.length === 0 && droppedFiles.length === 0 && !systemStats}
                 <div class="ambient-section"><div class="np-meta">Şu an içerik yok — çalan müzik yok, süren indirme yok.</div></div>
               {/if}
             </div>
@@ -566,6 +602,11 @@
           <option value="overlay">Ayrı overlay (best-effort)</option>
         </select>
         <div class="hint">Wayland/GNOME’da overlay garantili değildir — bu yüzden “Otomatik” uygulama içi panele düşer.</div>
+      </div>
+      <div class="field">
+        <label for="sysstats">CPU/RAM satırı (ada içinde)</label>
+        <button class="toggle" id="sysstats" aria-pressed={systemStatsEnabled} aria-label="CPU/RAM satırı" onclick={() => { systemStatsEnabled = !systemStatsEnabled; persistSettings(); }}></button>
+        <div class="hint">Adada bu makinenin CPU/RAM örneğini gösterir (/proc üzerinden, cihazdan hiç çıkmaz). Kapandığında kabuk yeniden başlatılınca örnek toplanmayı durdurur.</div>
       </div>
       <div class="field">
         <label for="motion">Hareketi azalt</label>

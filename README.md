@@ -40,10 +40,11 @@ The signature feature. A desktop take on the dynamic island. No Apple branding, 
 - Focus timers with pause/resume; fires once when done
 - Expandable pill with size/position/auto-hide settings
 - Honest per-platform support: `Supported` on Windows 10/11 and macOS, `Limited` on Linux (KDE usually OK; Wayland clients may ignore always-on-top → in-app island)
-- Ambient rows (new): live clock, now-playing via MPRIS (best-effort; hidden when no player answers), an XDG downloads watcher that catches every browser (name and size only, never content), and a drop tray that lists dropped files without touching them
+- Ambient rows (new): live clock, now-playing via MPRIS (best-effort; hidden when no player answers) with ⏮ ⏯ ⏭ controls and a volume slider, an XDG downloads watcher that catches every browser (name and size only, never content), and a drop tray that lists dropped files without touching them
+- CPU/RAM readout in the island (Linux, `/proc` only; toggleable with "CPU/RAM satırı" in Settings)
 - In-app shortcuts: `Ctrl+Space` toggles, `1`–`5` start 25/10/5-min and 1/2-hour timers, `Esc` collapses
 
-The MPRIS and downloads bridges are Linux-only and compile into the shell. Orbit does not invent data: if nothing answers, the row hides instead of showing a placeholder.
+The MPRIS and downloads bridges are Linux-only and compile into the shell. Orbit does not invent data: if nothing answers, the row hides instead of showing a placeholder. Volume and media controls go over MPRIS to the player; they do nothing when no player is reachable. The CPU/RAM row reads `/proc/stat` and `/proc/meminfo` locally and never leaves your machine.
 
 ## Privacy — the actual rules
 

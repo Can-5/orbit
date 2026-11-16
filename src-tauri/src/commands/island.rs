@@ -3,7 +3,7 @@
 
 use tauri::{Emitter, State};
 
-use orbit_core::island::{IslandContent, IslandSnapshot, IslandView, Priority};
+use orbit_core::island::{IslandContent, IslandSnapshot, Priority};
 
 use crate::AppState;
 
@@ -250,4 +250,77 @@ pub fn island_clear_dropped_files(
     };
     broadcast(&app, &snapshot);
     Ok(snapshot)
+}
+
+
+/// Media control — PlayPause/Next/Previous on the first MPRIS player.
+/// Honest errors when no player or no support; never invents state.
+#[tauri::command]
+pub fn island_media_toggle() -> CmdResult<()> {
+    #[cfg(target_os = "linux")]
+    {
+        let player = crate::mpris::current_player()
+            .ok_or_else(|| "no MPRIS media player on the session bus".to_string())?;
+        crate::mpris::call_player(&player, "org.mpris.MediaPlayer2.Player.PlayPause", &[])
+            .ok_or_else(|| "player did not accept PlayPause".to_string())?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Err("media control is implemented on Linux only".to_string())
+    }
+}
+
+#[tauri::command]
+pub fn island_media_next() -> CmdResult<()> {
+    #[cfg(target_os = "linux")]
+    {
+        let player = crate::mpris::current_player()
+            .ok_or_else(|| "no MPRIS media player on the session bus".to_string())?;
+        crate::mpris::call_player(&player, "org.mpris.MediaPlayer2.Player.Next", &[])
+            .ok_or_else(|| "player did not accept Next".to_string())?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Err("media control is implemented on Linux only".to_string())
+    }
+}
+
+#[tauri::command]
+pub fn island_media_prev() -> CmdResult<()> {
+    #[cfg(target_os = "linux")]
+    {
+        let player = crate::mpris::current_player()
+            .ok_or_else(|| "no MPRIS media player on the session bus".to_string())?;
+        crate::mpris::call_player(&player, "org.mpris.MediaPlayer2.Player.Previous", &[])
+            .ok_or_else(|| "player did not accept Previous".to_string())?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Err("media control is implemented on Linux only".to_string())
+    }
+}
+
+/// Set media volume 0.0–1.0 on the first MPRIS player that accepts it.
+#[tauri::command]
+pub fn island_set_media_volume(volume: f32) -> CmdResult<()> {
+    if !(0.0..=1.0).contains(&volume) || volume.is_nan() {
+        return Err("volume must be between 0.0 and 1.0".to_string());
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let player = crate::mpris::current_player()
+            .ok_or_else(|| "no MPRIS media player on the session bus".to_string())?;
+        if crate::mpris::set_player_volume(&player, volume) {
+            Ok(())
+        } else {
+            Err("player does not expose or accept Volume over MPRIS".to_string())
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Err("media control is implemented on Linux only".to_string())
+    }
 }

@@ -216,6 +216,7 @@ fn island_ambient_now_playing_and_downloads() {
         position_secs: 41,
         length_secs: Some(232),
         playing: true,
+        volume: None,
     }));
     let snap = m.snapshot();
     assert_eq!(snap.now_playing.as_ref().unwrap().artist, "Sam Cooke");

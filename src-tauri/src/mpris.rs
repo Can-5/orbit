@@ -144,6 +144,32 @@ fn uint_prop(props: &str, key: &str) -> Option<u64> {
     digits.parse().ok()
 }
 
+/// Extract a floating-point property; gdbus prints e.g. `<0.5>` for Volume.
+fn double_prop(props: &str, key: &str) -> Option<f32> {
+    let needle = format!("{key}: <");
+    let start = props.find(&needle)? + needle.len();
+    let end = props[start..].find('>')? + start;
+    props[start..end].trim().parse::<f32>().ok()
+}
+
+/// The first running MPRIS player's bus name, if any.
+pub(crate) fn current_player() -> Option<String> {
+    gdbus_call("org.freedesktop.DBus", "org.freedesktop.DBus.ListNames", &[])
+        .and_then(|names| find_player(&names))
+}
+
+/// Invoke a method on the MPRIS Player interface. Returns the raw reply on success.
+pub(crate) fn call_player(player: &str, method: &str, args: &[&str]) -> Option<String> {
+    gdbus_call(player, method, args)
+}
+
+/// Set the player's Volume (0.0–1.0). Returns false when the player refuses or has no Volume property.
+pub(crate) fn set_player_volume(player: &str, volume: f32) -> bool {
+    let value = format!("<{volume}>");
+    gdbus_call(player, "org.freedesktop.DBus.Properties.Set",
+        &["org.mpris.MediaPlayer2.Player", "Volume", &value]).is_some()
+}
+
 /// Parse gdbus GetAll output into NowPlaying. Returns None on any unexpected drift.
 fn parse_player_props(props: &str, player: &str) -> Option<NowPlaying> {
     // PlaybackStatus: 'Playing' | 'Paused' | 'Stopped'
@@ -165,5 +191,6 @@ fn parse_player_props(props: &str, player: &str) -> Option<NowPlaying> {
         position_secs,
         length_secs,
         playing: status == "Playing",
+        volume: double_prop(props, "Volume"),
     })
 }

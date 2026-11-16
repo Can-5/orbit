@@ -19,3 +19,14 @@ Unreleased changes since the initial scaffold (1b405b0):
 - CI for orbit-core (`cargo test --locked -p orbit-core`, release build);
   the Tauri shell is not built in CI (needs system WebKitGTK dev packages)
 - `pnpm check` (svelte-check) clean
+- Island ambient bridges (Linux, `src-tauri`): MPRIS now-playing watcher and
+  `island_media_toggle` / `island_media_next` / `island_media_prev` /
+  `island_set_media_volume` commands; an XDG downloads watcher that tracks
+  top-level regular files by name and size only; a `sysmon` sampler that reads
+  `/proc/stat` and `/proc/meminfo` every 2 seconds and feeds the island's
+  CPU/RAM readout (new `island.system_stats` setting, on by default)
+- Dropped-files tray: `island_drop_files` / `island_clear_dropped_files`
+  commands listing path and size only; nothing is copied, moved or read
+- Frontend: black ambient island restyle, live clock, media controls, volume
+  slider, CPU/RAM bars and progress bars for downloads; in-app shortcuts
+  (`Ctrl+Space`, `1`-`5`, `Esc`)
