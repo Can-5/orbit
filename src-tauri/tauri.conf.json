@@ -29,7 +29,7 @@
         "height": 44,
         "minWidth": 320,
         "minHeight": 40,
-        "resizable": false,
+        "resizable": true,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,

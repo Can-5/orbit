@@ -5,6 +5,7 @@
   import {
     islandSnapshot, islandDropFiles, islandClearDroppedFiles, islandStartTimer,
     islandMediaToggle, islandMediaNext, islandMediaPrev, islandSetMediaVolume,
+    islandBrightnessGet, islandBrightnessSet,
     type IslandSnapshot, type DownloadTask, type SystemStats,
   } from "./lib/ipc";
 
@@ -13,6 +14,7 @@
   let expanded = $state(false);
   let volumeOverride = $state<number | null>(null);
   let dropDragOver = $state(false);
+  let brightness = $state<number | null>(80);
 
   let clockHandle: ReturnType<typeof setInterval> | null = null;
   let pollHandle: ReturnType<typeof setInterval> | null = null;
@@ -39,7 +41,7 @@
   async function applySize() {
     try {
       const { getCurrentWindow, LogicalSize } = await import("@tauri-apps/api/window");
-      await getCurrentWindow().setSize(new LogicalSize(460, expanded ? 430 : 48));
+      await getCurrentWindow().setSize(new LogicalSize(460, expanded ? 470 : 48));
     } catch (err) {
       console.error("[island] setSize failed:", err);
     }
@@ -59,6 +61,7 @@
     document.body.classList.add("island-window");
     clockHandle = setInterval(() => (now = new Date()), 1000);
     window.addEventListener("keydown", onKeydown);
+    brightness = await islandBrightnessGet();
     const first = await islandSnapshot();
     if (first) snapshot = first;
     pollHandle = setInterval(async () => {
@@ -178,6 +181,16 @@
             {/each}
             <button class="btn" style="margin-top:.35rem" onclick={() => islandClearDroppedFiles()}>Listeyi temizle</button>
           </div>
+        {/if}
+
+        {#if brightness !== null}
+          <label class="vol-row bright-row">
+            <span class="np-meta">☀ Parlaklık</span>
+            <input type="range" min="2" max="100" step="1" value={Math.round(brightness)}
+              oninput={(e) => { const v = Number((e.currentTarget as HTMLInputElement).value); brightness = v; islandBrightnessSet(v); }}
+              aria-label="Ekran parlaklığı" />
+            <span class="mono np-meta">{Math.round(brightness)}</span>
+          </label>
         {/if}
 
         <div class="ambient-section pill-timers">

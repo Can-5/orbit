@@ -9,6 +9,8 @@ mod downloads;
 #[cfg(target_os = "linux")]
 mod mpris;
 #[cfg(target_os = "linux")]
+mod brightness;
+#[cfg(target_os = "linux")]
 mod sysmon;
 mod platform;
 
@@ -104,6 +106,8 @@ pub fn run() {
             commands::island::island_media_next,
             commands::island::island_media_prev,
             commands::island::island_set_media_volume,
+            commands::island::island_brightness_get,
+            commands::island::island_brightness_set,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Orbit")

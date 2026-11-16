@@ -324,3 +324,33 @@ pub fn island_set_media_volume(volume: f32) -> CmdResult<()> {
         Err("media control is implemented on Linux only".to_string())
     }
 }
+
+/// Read screen brightness as 0..=100, or null when no backlight is exposed.
+#[tauri::command]
+pub fn island_brightness_get() -> CmdResult<Option<f32>> {
+    #[cfg(target_os = "linux")]
+    {
+        Ok(crate::brightness::read_percent().map(|v| v * 100.0))
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Ok(None)
+    }
+}
+
+/// Set screen brightness from 0..=100. Clamps to a safe minimum.
+#[tauri::command]
+pub fn island_brightness_set(percent: f32) -> CmdResult<()> {
+    if !(0.0..=100.0).contains(&percent) || percent.is_nan() {
+        return Err("brightness percent must be between 0 and 100".to_string());
+    }
+    #[cfg(target_os = "linux")]
+    {
+        crate::brightness::set_percent(percent / 100.0)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = percent;
+        Err("brightness control is implemented on Linux only".to_string())
+    }
+}

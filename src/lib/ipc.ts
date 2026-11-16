@@ -144,3 +144,12 @@ export async function islandClearDroppedFiles(): Promise<IslandSnapshot | null> 
 export async function islandStartTimer(label: string, durationSecs: number): Promise<IslandSnapshot | null> {
 	return ipc<IslandSnapshot>('island_start_timer', { label, duration_secs: durationSecs });
 }
+
+export async function islandBrightnessGet(): Promise<number | null> {
+	const v = await ipc<number | null>('island_brightness_get');
+	return v ?? null;
+}
+
+export async function islandBrightnessSet(percent: number): Promise<void> {
+	await ipc<void>('island_brightness_set', { percent });
+}
