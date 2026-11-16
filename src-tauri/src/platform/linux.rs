@@ -14,12 +14,16 @@ pub fn desktop_name() -> String {
 
 /// Overlay island decision on Linux.
 ///
-/// GNOME on Wayland does not allow a global always-on-top overlay for regular
-/// clients — showing one anyway would be pretending. We return true on X11
-/// (override-redirect style window) and false elsewhere; KDE Wayland users can
-/// opt in via Settings → Island → Overlay, accepting compositor limits.
+/// KDE Plasma Wayland usually honors client-side always-on-top, so the
+/// overlay is offered there as a best-effort floating pill. GNOME on Wayland
+/// does not allow a global always-on-top overlay for regular clients, so the
+/// in-app island stays the honest fallback on GNOME Wayland. X11 works via
+/// EWMH/override-redirect semantics.
 pub fn overlay_island_supported() -> bool {
-    !is_wayland()
+    if !is_wayland() {
+        return true;
+    }
+    desktop_name().to_uppercase().contains("KDE")
 }
 
 /// KWin-specific notes used by docs and honest error messages.

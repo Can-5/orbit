@@ -39,7 +39,8 @@ The signature feature. A desktop take on the dynamic island. No Apple branding, 
 - Toasts, clipboard/screenshot/workspace/system events
 - Focus timers with pause/resume; fires once when done
 - Expandable pill with size/position/auto-hide settings
-- Honest per-platform support: `Supported` on Windows 10/11 and macOS, `Limited` on Linux (KDE usually OK; Wayland clients may ignore always-on-top → in-app island)
+- Honest per-platform support: `Supported` on Windows 10/11 and macOS; floating pill at the top-center on KDE Plasma (X11 and best-effort Wayland) and the whole X11 world; on GNOME Wayland, the in-app island
+- Island overlay window: dedicated transparent window rendering only the black pill, always on top, top-center; expanded pill shows the same ambient sections
 - Ambient rows (new): live clock, now-playing via MPRIS (best-effort; hidden when no player answers) with ⏮ ⏯ ⏭ controls and a volume slider, an XDG downloads watcher that catches every browser (name and size only, never content), and a drop tray that lists dropped files without touching them
 - CPU/RAM readout in the island (Linux, `/proc` only; toggleable with "CPU/RAM satırı" in Settings)
 - In-app shortcuts: `Ctrl+Space` toggles, `1`–`5` start 25/10/5-min and 1/2-hour timers, `Esc` collapses

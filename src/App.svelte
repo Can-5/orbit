@@ -5,6 +5,7 @@
     islandMediaToggle, islandMediaNext, islandMediaPrev, islandSetMediaVolume,
     type ModuleDto, type IslandSnapshot, type DownloadTask, type SystemStats,
   } from "./lib/ipc";
+  import IslandWindow from "./IslandWindow.svelte";
 
   // ---------- navigation ----------
   type Tab = "dashboard" | "modules" | "island" | "permissions" | "capabilities" | "settings";
@@ -159,7 +160,16 @@
   let implementedModules = $derived(modules.filter(m => m.implemented).length);
   let grantedPerms = $derived(permissions.filter(p => p.granted).length);
 
+  // True when this document is being shown inside the island overlay window.
+  let isIslandWindow = $state(false);
+
   onMount(async () => {
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      if (getCurrentWindow().label === "island") { isIslandWindow = true; return; }
+    } catch {
+      // plain browser — fall through to the dashboard
+    }
     loadLocal();
     const hosted = await hydrateFromHost();
     liveHost = hosted && inTauri;
@@ -322,6 +332,9 @@
   });
 </script>
 
+{#if isIslandWindow}
+  <IslandWindow />
+{:else}
 <div class="shell">
   <aside class="sidebar">
     <div class="brand">
@@ -616,3 +629,4 @@
     {/if}
   </main>
 </div>
+{/if}

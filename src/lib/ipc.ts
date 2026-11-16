@@ -90,11 +90,20 @@ export async function listModules(): Promise<{ modules: ModuleDto[]; live: boole
 /* ---------- Island ambient snapshot (host-pushed; never invented) ---------- */
 
 /** serde snake_case keys, matching orbit_core::island::IslandSnapshot. */
+export interface FocusTimer {
+	label: string;
+	ends_at_ms: number;
+	duration_secs: number;
+	paused: boolean;
+	remaining_secs: number;
+}
+
 export interface IslandSnapshot {
 	view: 'collapsed' | 'expanded';
 	active: unknown | null;
 	queued: number;
-	timer: unknown | null;
+	timer: FocusTimer | null;
+	timer_remaining_secs?: number | null;
 	now_playing: NowPlaying | null;
 	downloads: DownloadTask[];
 	downloads_active: number;

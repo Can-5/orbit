@@ -50,6 +50,17 @@ pub fn run() {
                 };
             if wants_overlay {
                 if let Some(win) = app.get_webview_window("island") {
+                    // Floating pill at the top-center of the primary monitor,
+                    // like a desktop take on the dynamic island.
+                    if let Ok(Some(monitor)) = win.primary_monitor() {
+                        let monitor_size = monitor.size();
+                        let monitor_origin = monitor.position();
+                        let window_size = win
+                            .outer_size()
+                            .unwrap_or_else(|_| tauri::PhysicalSize::new(480, 44));
+                        let x = monitor_origin.x + (monitor_size.width as i32 - window_size.width as i32) / 2;
+                        let _ = win.set_position(tauri::PhysicalPosition::new(x, monitor_origin.y));
+                    }
                     let _ = win.show();
                 }
             }

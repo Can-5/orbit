@@ -4,7 +4,7 @@ Orbit reports what the OS actually lets it do, never a pretended "supported". `o
 
 | Capability | Linux (X11/XWayland) | Linux (Wayland / GNOME) | Linux (KDE Plasma) | Windows 10/11 | macOS |
 | --- | --- | --- | --- | --- | --- |
-| Island overlay window | Limited | Limited (KWin generally honors; GNOME may not) | Limited to OK | Supported | Supported |
+| Island overlay window | Supported (override-redirect) | Limited (GNOME Wayland: no always-on-top) | OK best-effort (KWin honors client-side always-on-top; pill floats at top-center) | Supported | Supported |
 | Global hotkeys | Limited (evdev/XRecord) | Limited (compositor-dependent) | OK via KWin shortcuts | Supported | Supported |
 | Clipboard monitor | Limited (per-app read) | Limited | Limited to OK | Supported | Supported |
 | Screen capture | Limited (xdg-portal) | Limited (portal only) | OK | Supported | Supported |
@@ -20,7 +20,7 @@ Support is per-session and can change when the compositor does. Orbit queries, f
 
 KDE is the best-supported Linux path, with caveats:
 
-- The overlay island works on X11 and is best-effort on Wayland. Plasma usually honors always-on-top; when it does not, Orbit uses the in-app island.
+- The overlay island works on X11 and is best-effort on Wayland. Plasma usually honors always-on-top; the pill floats at the top-center of the primary monitor. When KWin does not honor it, Orbit uses the in-app island.
 - Global shortcuts on Wayland need the XDG GlobalShortcuts portal. Plasma ships it, but Orbit does not implement the portal client yet. That is Phase 5 work. Until then, shortcuts work inside the app only (`Ctrl+Space` toggles the island, `1`-`5` start timers, `Esc` collapses).
 - KWin rules can pin the island window. That is a manual setup; Orbit does not edit your KWin configuration without your approval.
 
