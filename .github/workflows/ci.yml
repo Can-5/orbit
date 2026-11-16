@@ -15,4 +15,5 @@ jobs:
       - run: cargo build --locked -p orbit-core --release
 
   # The Tauri shell requires system WebKitGTK/GTK dev packages and is not
-  # built in CI yet. The frontend is not implemented. See docs/limitations.md.
+  # built in CI yet (see docs/limitations.md). The Svelte frontend is built
+  # with pnpm install && pnpm build; it is not exercised in CI.
