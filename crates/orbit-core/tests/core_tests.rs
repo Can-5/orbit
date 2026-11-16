@@ -136,3 +136,65 @@ fn module_registry_is_consistent() {
     assert!(module_by_id("orbit_island").is_some());
     assert!(module_by_id("nope").is_none());
 }
+
+use orbit_core::manifest::{
+    detect_installed_modules, is_semverish, is_slug, validate_manifest, InstallState, ModuleManifest,
+};
+use std::fs;
+
+fn temp_modules_dir(tag: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("orbit-test-{tag}-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+fn sample_manifest_json() -> &'static str {
+    r#"{"format":1,"id":"ghostdrop","name":"GhostDrop","version":"0.1.0","protocol":"1","description":"test module","permissions":["clipboard_read"],"island":false}"#
+}
+
+#[test]
+fn manifest_validation_boundaries() {
+    assert!(is_slug("ghostdrop-2"));
+    assert!(!is_slug("GhostDrop"));
+    assert!(!is_slug("-lead"));
+    assert!(!is_slug("trail-"));
+    assert!(is_semverish("0.1.0"));
+    assert!(!is_semverish("0.1"));
+    assert!(!is_semverish("0.1.0-rc1"));
+
+    let ok: ModuleManifest = serde_json::from_str(sample_manifest_json()).unwrap();
+    assert!(validate_manifest(&ok).is_ok());
+
+    let mut bad = ok.clone();
+    bad.format = 2;
+    assert!(validate_manifest(&bad).is_err());
+
+    let mut bad = ok.clone();
+    bad.protocol = "2".into();
+    assert!(validate_manifest(&bad).is_err());
+
+    let mut bad = ok.clone();
+    bad.permissions = vec!["teleportation".into()];
+    assert!(validate_manifest(&bad).is_err());
+}
+
+#[test]
+fn detect_installed_modules_classifies() {
+    let root = temp_modules_dir("detect");
+    fs::create_dir_all(root.join("ghostdrop")).unwrap();
+    fs::write(root.join("ghostdrop").join("orbit-module.json"), sample_manifest_json()).unwrap();
+    fs::create_dir_all(root.join("broken")).unwrap();
+    fs::write(root.join("broken").join("orbit-module.json"), "{not json").unwrap();
+    fs::create_dir_all(root.join("no-manifest")).unwrap(); // skipped
+
+    let found = detect_installed_modules(&root);
+    assert_eq!(found.len(), 2);
+    let by_id: std::collections::HashMap<_, _> =
+        found.into_iter().map(|m| (m.id.clone().unwrap_or_default(), m)).collect();
+    assert!(matches!(by_id["ghostdrop"].state, InstallState::Ok { .. }));
+    let broken = by_id.iter().find(|(k, _)| k.is_empty()).unwrap().1.clone();
+    assert!(matches!(broken.state, InstallState::Invalid { .. }));
+
+    let _ = fs::remove_dir_all(&root);
+}

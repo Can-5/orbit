@@ -8,6 +8,7 @@
 pub mod capabilities;
 pub mod error;
 pub mod island;
+pub mod manifest;
 pub mod models;
 pub mod module_registry;
 pub mod permissions;

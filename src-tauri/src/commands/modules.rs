@@ -1,6 +1,7 @@
 use serde::Serialize;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
+use orbit_core::manifest::detect_installed_modules;
 use orbit_core::module_registry::modules;
 
 use crate::AppState;
@@ -37,4 +38,17 @@ pub fn list_modules(state: State<'_, AppState>) -> CmdResult<Vec<ModuleDto>> {
             required_permissions: m.required_permissions,
         })
         .collect())
+}
+
+/// Scan the app-data `modules/` directory for installed module manifests.
+/// Honest states: Ok / Refused / Invalid — never silently dropped, never
+/// auto-granted. The host does not launch or trust modules yet.
+#[tauri::command]
+pub fn list_installed_modules(app: AppHandle) -> CmdResult<Vec<orbit_core::manifest::InstalledModule>> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("app data dir unavailable: {e}"))?
+        .join("modules");
+    Ok(detect_installed_modules(&dir))
 }

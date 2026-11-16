@@ -65,6 +65,10 @@ impl Permission {
         }
     }
 
+    pub fn from_id(id: &str) -> Option<Permission> {
+        Permission::all().iter().copied().find(|p| p.id() == id)
+    }
+
     /// Human-facing label + what the permission actually does. Kept in sync
     /// with the Settings → Permissions UI.
     pub fn description(self) -> (&'static str, &'static str) {

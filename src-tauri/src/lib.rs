@@ -56,6 +56,7 @@ pub fn run() {
             commands::permissions::set_permission,
             commands::capabilities::get_capabilities,
             commands::modules::list_modules,
+            commands::modules::list_installed_modules,
             commands::app::app_info,
             commands::island::island_snapshot,
             commands::island::island_tick,
