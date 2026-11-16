@@ -322,3 +322,43 @@ table.caps th { color: var(--text-dim); font-weight: 600; }
 @media (prefers-reduced-motion: reduce) {
 	* { transition: none !important; animation: none !important; }
 }
+
+/* ---------- Island ambient rows (clock / now playing / downloads / drops) ---------- */
+.clock-line { font-size: 2.6rem; font-weight: 700; letter-spacing: 0.04em; margin-top: 1.2rem; }
+.island-date { color: var(--text-dim); margin-bottom: 1rem; text-transform: capitalize; }
+.island.ambient {
+  width: min(520px, 100%);
+  padding: 0.8rem 1rem;
+  border-radius: 28px;
+  border: 1px solid #1d2333;
+  background: #000;
+  color: #e7ecf6;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.6);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.island.ambient.expanded { border-color: var(--accent); box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 25%, transparent); }
+.island-head { display: flex; align-items: center; gap: 0.6rem; }
+.island-msg { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ambient-body { margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.ambient-section { display: flex; flex-direction: column; gap: 0.3rem; }
+.ambient-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+.np-title { font-weight: 600; }
+.np-meta { font-size: 0.8rem; color: var(--text-dim); }
+.progress { height: 4px; border-radius: 2px; background: var(--panel-2); overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); transition: width 0.4s ease; }
+.progress-indeterminate .progress-fill { width: 40%; animation: orbit-indeterminate 1.6s ease-in-out infinite; }
+@keyframes orbit-indeterminate { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
+.dl-row { display: flex; gap: 0.5rem; align-items: flex-start; }
+.dl-icon { width: 1.4rem; text-align: center; }
+.dl-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.2rem; }
+.dl-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.85rem; }
+.dropped-row { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.85rem; }
+.dropped-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dropzone { margin-top: 1rem; border: 1.5px dashed var(--border); border-radius: 16px; padding: 1.2rem; text-align: center; transition: border-color 0.15s ease, background 0.15s ease; }
+.dropzone.dragover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.dropzone-title { font-weight: 600; }
+.island-hint { margin-top: 0.8rem; font-size: 0.78rem; color: var(--text-dim); }
+.island-hint kbd { background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; padding: 0.05rem 0.35rem; font-size: 0.75rem; }
+.island-actions kbd { opacity: 0.75; font-size: 0.75em; }
+.island-stage:has(.island.ambient) { height: auto; min-height: 260px; overflow: visible; padding: 1rem 0; align-items: flex-start; }
+.island-stage:has(.island.ambient) .island { position: relative; top: auto; transform: none; margin: 0 auto; }

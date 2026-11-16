@@ -4,6 +4,10 @@
 //! `orbit-core`, and owns window/platform decisions. No business logic here.
 
 mod commands;
+#[cfg(target_os = "linux")]
+mod downloads;
+#[cfg(target_os = "linux")]
+mod mpris;
 mod platform;
 
 use std::sync::Mutex;
@@ -47,6 +51,16 @@ pub fn run() {
                     let _ = win.show();
                 }
             }
+
+            // Ambient island feeds (Linux only, opt-in via the island setting).
+            // MPRIS now-playing + download-dir metadata watcher: no content is
+            // read, no file is modified, no network is used.
+            #[cfg(target_os = "linux")]
+            if settings.island.enabled {
+                let handle = app.handle().clone();
+                mpris::start(handle.clone());
+                downloads::start(handle);
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -68,6 +82,8 @@ pub fn run() {
             commands::island::island_start_timer,
             commands::island::island_cancel_timer,
             commands::island::island_toggle_timer_pause,
+            commands::island::island_drop_files,
+            commands::island::island_clear_dropped_files,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Orbit")

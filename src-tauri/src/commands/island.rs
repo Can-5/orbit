@@ -9,6 +9,17 @@ use crate::AppState;
 
 type CmdResult<T> = std::result::Result<T, String>;
 
+/// Broadcast the current snapshot to both windows (main and optional island overlay).
+/// Shared by the IPC commands and the background ambient services (MPRIS poll, downloads watch).
+pub(crate) fn broadcast_snapshot(app: &tauri::AppHandle, state: &AppState) {
+    let snapshot = match state.island.lock() {
+        Ok(island) => island.snapshot(),
+        Err(_) => return,
+    };
+    let _ = app.emit_to("main", "orbit://island-changed", &snapshot);
+    let _ = app.emit_to("island", "orbit://island-changed", &snapshot);
+}
+
 fn broadcast(app: &tauri::AppHandle, snapshot: &IslandSnapshot) {
     // Both the main window and the (optional) overlay window receive this.
     let _ = app.emit_to("main", "orbit://island-changed", snapshot);
@@ -174,6 +185,67 @@ pub fn island_toggle_timer_pause(
     let snapshot = {
         let mut island = state.island.lock().map_err(|e| e.to_string())?;
         island.toggle_timer_pause();
+        island.snapshot()
+    };
+    broadcast(&app, &snapshot);
+    Ok(snapshot)
+}
+
+/// Register files dropped on the island. Listing only — Orbit never copies,
+/// moves or deletes anything here. Files must exist and be regular files.
+#[tauri::command]
+pub fn island_drop_files(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    paths: Vec<String>,
+) -> CmdResult<IslandSnapshot> {
+    if paths.is_empty() {
+        return Err("no paths provided".into());
+    }
+    if paths.len() > 64 {
+        return Err("too many paths (max 64)".into());
+    }
+    let mut files = Vec::with_capacity(paths.len());
+    for p in paths {
+        let meta = match std::fs::metadata(&p) {
+            Ok(m) => m,
+            Err(_) => continue, // unreadable entries are skipped, not faked
+        };
+        if !meta.is_file() {
+            continue;
+        }
+        files.push(orbit_core::island::DroppedFile { path: p, bytes: meta.len() });
+    }
+    if files.is_empty() {
+        return Err("no readable regular files among the dropped paths".into());
+    }
+    let snapshot = {
+        let mut island = state.island.lock().map_err(|e| e.to_string())?;
+        let count = files.len();
+        for f in files {
+            island.add_dropped_file(f);
+        }
+        island.push(
+            IslandContent::Toast {
+                message: format!("{count} file(s) dropped on the island — listed, not moved"),
+            },
+            Priority::Normal,
+            Some(6_000),
+        );
+        island.snapshot()
+    };
+    broadcast(&app, &snapshot);
+    Ok(snapshot)
+}
+
+#[tauri::command]
+pub fn island_clear_dropped_files(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> CmdResult<IslandSnapshot> {
+    let snapshot = {
+        let mut island = state.island.lock().map_err(|e| e.to_string())?;
+        island.clear_dropped_files();
         island.snapshot()
     };
     broadcast(&app, &snapshot);

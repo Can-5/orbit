@@ -4,7 +4,7 @@
 
 Orbit is a privacy-first, open-source desktop companion for Linux (KDE/GNOME), Windows 10/11, and macOS. It unifies twelve focused projects into one coherent experience — without a framework of forced dependencies, without telemetry, and without accounts.
 
-**Honest status:** *pre-alpha / Phase 1.* Orbit launches and runs today as a Rust workspace; the island engine, settings, permissions, and storage are implemented and tested (`orbit-core`, 7 tests green). The Tauri desktop shell is written but **has not been built on this machine** — it needs system WebKitGTK development packages that are not installed (see [Build](#build)). The Svelte frontend **is implemented** (shell UI: dashboard, modules, island preview, permissions, capabilities, settings — static preview mode outside the Tauri host) but the shell has not been built, so live data is untested. Module repos stand alone and ship their own domain logic + tests; wiring them into the host is Phase 2.
+**Honest status:** *pre-alpha / Phase 1.* Orbit launches and runs today as a Rust workspace; the island engine, settings, permissions, and storage are implemented and tested (`orbit-core`, 11 tests green). The Tauri desktop shell is written but **has not been built on this machine** — it needs system WebKitGTK development packages that are not installed (see [Build](#build)). The Svelte frontend **is implemented** (shell UI: dashboard, modules, island preview, permissions, capabilities, settings — static preview mode outside the Tauri host, with a live clock, ambient rows (now-playing/downloads/drops — labeled `önizleme` there), drag-and-drop and in-app shortcuts) but the shell has not been built, so live data is untested. Module repos stand alone and ship their own domain logic + tests; wiring them into the host is Phase 2.
 
 ![Orbit UI — browser preview](assets/screenshot.jpg)
 
@@ -15,19 +15,19 @@ Orbit itself is one repo. Every module is its own independent repo, its own crat
 | Repo | What it is | Status |
 | --- | --- | --- |
 | [Can-5/orbit](https://github.com/Can-5/orbit) | This repo. Tauri shell, app-wide settings, permission registry, `orbit-core` engine (island, capabilities, permissions, storage) | Shell written; **webkit2gtk-devel missing on dev machine** |
-| [Can-5/orbit-island](https://github.com/Can-5/orbit-island) | Orbit Island — the signature interactive pill: state machine, timer, queueing, plus Module Protocol v1 reference (`SPEC.md`) | Done (domain engine, 8 tests) |
-| [Can-5/ghostdrop](https://github.com/Can-5/ghostdrop) | Temporary clipboard & file-drop zone | Domain engine (5 tests) |
-| [Can-5/recall](https://github.com/Can-5/recall) | Local searchable history with exclusions | Domain engine (6 tests) |
-| [Can-5/renamex](https://github.com/Can-5/renamex) | Batch-rename *planning* (never writes without confirmation) | Domain engine (10 tests) |
-| [Can-5/pixelpick](https://github.com/Can-5/pixelpick) | Color science: HEX/RGB/HSL, palettes | Domain engine (7 tests) |
-| [Can-5/linknest](https://github.com/Can-5/linknest) | Local-first bookmarks, Markdown/HTML export | Domain engine (10 tests) |
-| [Can-5/keyglow](https://github.com/Can-5/keyglow) | Keystroke *visualization* (never sees what you type) | Domain engine (7 tests) |
-| [Can-5/cleanshot](https://github.com/Can-5/cleanshot) | Screenshot annotation models (no capture engine) | Domain engine (8 tests) |
-| [Can-5/apppulse](https://github.com/Can-5/apppulse) | Metrics modeling: ring buffer, EMA, alert rules | Domain engine (7 tests) |
-| [Can-5/snapspace](https://github.com/Can-5/snapspace) | Workspace profile capture/validation, honest restore planning | Domain engine (6 tests) |
-| [Can-5/themeport](https://github.com/Can-5/themeport) | Theme engine: WCAG contrast, validated theme packs | Domain engine (11 tests) |
+| [Can-5/orbit-island](https://github.com/Can-5/orbit-island) | Orbit Island — the signature interactive pill: state machine, timer, queueing, plus Module Protocol v1 reference (`SPEC.md`) | Done (domain engine, 13 tests) |
+| [Can-5/ghostdrop](https://github.com/Can-5/ghostdrop) | Temporary clipboard & file-drop zone | Domain engine (7 tests) |
+| [Can-5/recall](https://github.com/Can-5/recall) | Local searchable history with exclusions | Domain engine (8 tests) |
+| [Can-5/renamex](https://github.com/Can-5/renamex) | Batch-rename *planning* (never writes without confirmation) | Domain engine (13 tests) |
+| [Can-5/pixelpick](https://github.com/Can-5/pixelpick) | Color science: HEX/RGB/HSL, palettes | Domain engine (9 tests) |
+| [Can-5/linknest](https://github.com/Can-5/linknest) | Local-first bookmarks, Markdown/HTML export | Domain engine (14 tests) |
+| [Can-5/keyglow](https://github.com/Can-5/keyglow) | Keystroke *visualization* (never sees what you type) | Domain engine (11 tests) |
+| [Can-5/cleanshot](https://github.com/Can-5/cleanshot) | Screenshot annotation models (no capture engine) | Domain engine (9 tests) |
+| [Can-5/apppulse](https://github.com/Can-5/apppulse) | Metrics modeling: ring buffer, EMA, alert rules | Domain engine (10 tests) |
+| [Can-5/snapspace](https://github.com/Can-5/snapspace) | Workspace profile capture/validation, honest restore planning | Domain engine (9 tests) |
+| [Can-5/themeport](https://github.com/Can-5/themeport) | Theme engine: WCAG contrast, validated theme packs | Domain engine (12 tests) |
 
-**85 module tests green** across the eleven module repos (`cargo test --locked`), plus 7 in `orbit-core`.
+**113 module tests green** across the eleven module repos (`cargo test --locked`), plus 11 in `orbit-core`.
 
 > *Domain engine* means the platform-independent logic (validation, planning, modeling, export, state machines). The OS-facing pieces — global hotkeys, pasteboard hooks, screenshot capture, window management, wallpaper application — are the Orbit host's job and are **not** faked: they are either unimplemented or explicitly reported as unavailable on your platform via the capability registry. Nothing pretends to work when it doesn't.
 
@@ -40,7 +40,11 @@ The signature feature: a Dynamic Island–style interactive pill for desktops.
 - Focus timers with pause/resume; fires once
 - Expandable, collapsible, size/position/auto-hide configurable
 - Per-platform honest support matrix: `Supported` on Windows 10/11 & macOS (overlay window), `Limited` on Linux (KDE KWin generally OK; GNOME/Wayland clients may ignore always-on-top overlays → falls back to the in-app island)
+- **Ambient rows (new):** live clock + Turkish date line; now-playing via MPRIS (best-effort, std-only `gdbus` bridge — shows nothing when no player answers); a 1 Hz XDG-downloads watcher that catches **all browsers** (name/size only, zero content, `.part`/`.crdownload` handled); dropped-files tray listed (none of the files are copied, moved or read — only names and sizes)
+- **In-app shortcuts:** `Ctrl+Space` jumps to / toggles the island, `1`–`5` arm 25/10/5-min and 1/2-h timers, `Esc` collapses (ignored while typing)
 - **No Apple branding.** Own design language, own code.
+
+> The MPRIS and downloads bridges are Linux-only (`#[cfg(target_os = "linux")]`), compile into the shell, and — like the whole shell — have **not been built on this machine** yet (see [Build](#build)). When no MPRIS player answers, the now-playing row simply stays hidden; nothing is invented.
 
 ## Privacy — the actual rules
 

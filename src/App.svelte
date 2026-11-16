@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { inTauri, listModules, ipc, type ModuleDto } from "./lib/ipc";
+  import {
+    inTauri, listModules, ipc, islandSnapshot, islandDropFiles, islandClearDroppedFiles, islandStartTimer,
+    type ModuleDto, type IslandSnapshot, type DownloadTask,
+  } from "./lib/ipc";
 
   // ---------- navigation ----------
   type Tab = "dashboard" | "modules" | "island" | "permissions" | "capabilities" | "settings";
@@ -163,6 +166,27 @@
     const res = await listModules();
     modules = res.modules;
     modulesLoading = false;
+
+    clockHandle = setInterval(() => (now = new Date()), 1000);
+    window.addEventListener("keydown", onKeydown);
+    if (inTauri) {
+      const first = await islandSnapshot();
+      if (first) snapshot = first;
+      pollHandle = setInterval(async () => { const s = await islandSnapshot(); if (s) snapshot = s; }, 2000);
+      try {
+        const { listen } = await import("@tauri-apps/api/event");
+        unlistenChanged = await listen<IslandSnapshot>("orbit://island-changed", e => { snapshot = e.payload; });
+      } catch (err) { console.error("[orbit] island-changed listen failed:", err); }
+      try {
+        const { getCurrentWebview } = await import("@tauri-apps/api/webview");
+        unlistenDrop = await getCurrentWebview().onDragDropEvent(async event => {
+          if (event.payload.type === "drop") {
+            const res = await islandDropFiles(event.payload.paths);
+            if (res) snapshot = res;
+          }
+        });
+      } catch (err) { console.error("[orbit] drag-drop listener failed:", err); }
+    }
     if (hosted) {
       permissions = (await ipc<PermDto[]>("list_permissions")) ?? PREVIEW_PERMS;
       caps = await ipc("get_capabilities");
@@ -201,7 +225,90 @@
     }, 1000);
   }
 
-  onDestroy(() => { if (timerHandle) clearInterval(timerHandle); });
+  // ---------- island ambient (host-pushed snapshot; never invented) ----------
+  let now = $state(new Date());
+  let snapshot = $state<IslandSnapshot | null>(null);
+  let droppedPreview: { path: string; bytes: number }[] = $state([]);
+  let dropDragOver = $state(false);
+  let clockHandle: ReturnType<typeof setInterval> | null = null;
+  let pollHandle: ReturnType<typeof setInterval> | null = null;
+  let unlistenChanged: (() => void) | null = null;
+  let unlistenDrop: (() => void) | null = null;
+
+  // Static sample, browser preview only — clearly labeled "önizleme" in the UI.
+  const PREVIEW_NOW_PLAYING = { player: "preview", title: "Blinding Lights", artist: "The Weeknd", position_secs: 74, length_secs: 200, playing: true };
+  const PREVIEW_DOWNLOADS: DownloadTask[] = [
+    { id: "preview-1", label: "proje-sunumu.pdf", received_bytes: 4_600_000, total_bytes: 8_400_000, done: false },
+    { id: "preview-2", label: "orbit-logo.svg", received_bytes: 92_000, total_bytes: 92_000, done: true },
+  ];
+
+  let nowPlaying = $derived(liveHost ? (snapshot?.now_playing ?? null) : PREVIEW_NOW_PLAYING);
+  let downloads = $derived(liveHost ? (snapshot?.downloads ?? []) : PREVIEW_DOWNLOADS);
+  let droppedFiles = $derived(liveHost ? (snapshot?.dropped_files ?? []) : droppedPreview);
+
+  function fmtBytes(b: number): string {
+    if (b < 1024) return `${b} B`;
+    if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+    if (b < 1024 ** 3) return `${(b / 1024 / 1024).toFixed(1)} MB`;
+    return `${(b / 1024 ** 3).toFixed(2)} GB`;
+  }
+
+  function fmtDuration(secs: number): string {
+    const m = Math.floor(secs / 60), s = Math.floor(secs % 60);
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  }
+
+  async function hostTimer(mins: number) {
+    if (liveHost) {
+      const res = await islandStartTimer(`Odak ${mins}`, mins * 60);
+      if (res) { snapshot = res; islandExpanded = true; return; }
+    }
+    startDemoTimer(mins * 60, `Odak ${mins}`);
+  }
+
+  function onDropZoneDrop(e: DragEvent) {
+    e.preventDefault();
+    dropDragOver = false;
+    if (!e.dataTransfer) return;
+    const files = [...e.dataTransfer.files];
+    droppedPreview = [...droppedPreview, ...files.map(f => ({ path: f.name, bytes: f.size }))].slice(0, 16);
+    islandMsg = `${files.length} dosya (önizleme — hiçbir şey kopyalanmaz)`;
+    islandExpanded = true;
+  }
+
+  async function clearDropped() {
+    if (liveHost) {
+      const res = await islandClearDroppedFiles();
+      if (res) snapshot = res;
+    }
+    droppedPreview = [];
+  }
+
+  function onKeydown(e: KeyboardEvent) {
+    const t = e.target as HTMLElement | null;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+    if (e.ctrlKey && e.code === "Space") {
+      e.preventDefault();
+      if (tab !== "island") tab = "island"; else islandExpanded = !islandExpanded;
+      return;
+    }
+    if (tab !== "island") return;
+    if (e.key === "Escape") islandExpanded = false;
+    else if (e.key === "1") hostTimer(25);
+    else if (e.key === "2") hostTimer(10);
+    else if (e.key === "3") hostTimer(5);
+    else if (e.key === "4") hostTimer(60);
+    else if (e.key === "5") hostTimer(120);
+  }
+
+  onDestroy(() => {
+    if (timerHandle) clearInterval(timerHandle);
+    if (clockHandle) clearInterval(clockHandle);
+    if (pollHandle) clearInterval(pollHandle);
+    window.removeEventListener("keydown", onKeydown);
+    unlistenChanged?.();
+    unlistenDrop?.();
+  });
 </script>
 
 <div class="shell">
@@ -288,25 +395,104 @@
     {:else if tab === "island"}
       <h1 class="page-title">Orbit Island</h1>
       <p class="page-sub">Dynamic Island tarzı etkileşimli hap — Apple markası yok, sizin kabuğunuzda.</p>
-      <div class="note">Görsel önizleme — yerel demo durumuyla sürülür, sistem olayları değil. Gerçek olaylar (pano, ekran görüntüsü, zamanlayıcı) Tauri ana bilgisayarından gelir.</div>
+      <div class="note">{liveHost ? "Kabuğa bağlı — saat, çalınan müzik, indirmeler ve bıraktığınız dosyalar gerçek durumdur (MPRIS / İndirilenler klasörü izlenir)." : "Tarayıcı önizlemesi — saat gerçektir; müzik/indirme satırları örnek ve statiktir, etiketlidir. Gerçek olaylar Tauri kabuğundan gelir."}</div>
+
+      <div class="clock-line mono">{now.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</div>
+      <div class="island-date">{now.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" })}</div>
+
       <div class="island-stage">
-        <div class="island {islandExpanded ? "expanded" : ""}" role="status" aria-live="polite">
-          <div style="display:flex;align-items:center;gap:.5rem">
+        <div class="island ambient {islandExpanded ? "expanded" : ""}" role="status" aria-live="polite">
+          <div class="island-head">
             <span class="dot"></span>
-            <span>{islandMsg}</span>
+            <span class="island-msg">{islandMsg}</span>
+            <button class="btn" onclick={() => (islandExpanded = !islandExpanded)} aria-expanded={islandExpanded}>
+              {islandExpanded ? "Daralt" : "Genişlet"}
+            </button>
           </div>
-          <button class="btn" onclick={() => (islandExpanded = !islandExpanded)} aria-expanded={islandExpanded}>
-            {islandExpanded ? "Daralt" : "Genişlet"}
-          </button>
+
+          {#if islandExpanded}
+            <div class="ambient-body">
+              {#if nowPlaying}
+                <div class="ambient-section">
+                  <div class="ambient-label">Çalan {liveHost ? "" : "(önizleme)"}</div>
+                  <div class="np-title">{nowPlaying.title || "(başlıksız parça)"}</div>
+                  <div class="np-meta">{nowPlaying.artist}{nowPlaying.player ? ` · ${nowPlaying.player}` : ""} · {nowPlaying.playing ? "oynuyor" : "duraklatıldı"}</div>
+                  {#if nowPlaying.length_secs}
+                    <div class="progress"><div class="progress-fill" style="width:{Math.min(100, (nowPlaying.position_secs / nowPlaying.length_secs) * 100)}%"></div></div>
+                    <div class="np-meta">{fmtDuration(nowPlaying.position_secs)} / {fmtDuration(nowPlaying.length_secs)}</div>
+                  {:else}
+                    <div class="np-meta">{fmtDuration(nowPlaying.position_secs)}</div>
+                  {/if}
+                </div>
+              {/if}
+
+              {#if downloads.length > 0}
+                <div class="ambient-section">
+                  <div class="ambient-label">İndirmeler {liveHost ? `· ${snapshot?.downloads_active ?? 0} sürüyor` : "(önizleme)"}</div>
+                  {#each downloads as dl (dl.id)}
+                    <div class="dl-row">
+                      <span class="dl-icon" aria-hidden="true">{dl.done ? "✓" : "⬇"}</span>
+                      <div class="dl-body">
+                        <div class="dl-label">{dl.label}</div>
+                        {#if dl.total_bytes}
+                          <div class="progress"><div class="progress-fill" style="width:{Math.min(100, (dl.received_bytes / dl.total_bytes) * 100)}%"></div></div>
+                          <div class="np-meta">{fmtBytes(dl.received_bytes)} / {fmtBytes(dl.total_bytes)}{dl.done ? " · tamamlandı" : ""}</div>
+                        {:else}
+                          <div class="progress progress-indeterminate"><div class="progress-fill"></div></div>
+                          <div class="np-meta">{fmtBytes(dl.received_bytes)} alındı · toplam bilinmiyor{dl.done ? " · tamamlandı" : ""}</div>
+                        {/if}
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+
+              {#if droppedFiles.length > 0}
+                <div class="ambient-section">
+                  <div class="ambient-label">Bırakılan dosyalar ({droppedFiles.length}) · hiçbir şey taşınmaz</div>
+                  {#each droppedFiles as f}
+                    <div class="dropped-row">
+                      <span class="mono dropped-path" title={f.path}>{f.path.split("/").pop()}</span>
+                      <span class="np-meta">{fmtBytes(f.bytes)}</span>
+                    </div>
+                  {/each}
+                  <button class="btn" style="margin-top:.4rem" onclick={clearDropped}>Listeyi temizle</button>
+                </div>
+              {/if}
+
+              {#if !nowPlaying && downloads.length === 0 && droppedFiles.length === 0}
+                <div class="ambient-section"><div class="np-meta">Şu an içerik yok — çalan müzik yok, süren indirme yok.</div></div>
+              {/if}
+            </div>
+          {/if}
         </div>
       </div>
+
       <div class="island-actions">
+        <button class="btn primary" onclick={() => hostTimer(25)}>25 dk odak <kbd>1</kbd></button>
+        <button class="btn" onclick={() => hostTimer(10)}>10 dk <kbd>2</kbd></button>
+        <button class="btn" onclick={() => hostTimer(5)}>5 dk <kbd>3</kbd></button>
+        <button class="btn" onclick={() => hostTimer(60)}>1 sa <kbd>4</kbd></button>
+        <button class="btn" onclick={() => hostTimer(120)}>2 sa <kbd>5</kbd></button>
         <button class="btn" onclick={() => demoToast("Ayarlar kaydedildi")}>Toast göster</button>
-        <button class="btn" onclick={() => demoToast("Pano kaydedildi (önizleme)")}>Pano bildirimi</button>
-        <button class="btn" onclick={() => startDemoTimer(25 * 60, "Odak 25")}>25 dk odak</button>
-        <button class="btn" onclick={() => startDemoTimer(10, "Kısa mola (demo 10 sn)")}>10 sn mola</button>
         <button class="btn" onclick={() => { islandMsg = "Orbit hazır"; if (timerHandle) { clearInterval(timerHandle); timerHandle = null; } }}>Sıfırla</button>
       </div>
+
+      <div
+        class="dropzone {dropDragOver ? "dragover" : ""}"
+        role="region"
+        aria-label="Dosya bırakma alanı"
+        ondragover={e => { e.preventDefault(); dropDragOver = true; }}
+        ondragleave={() => (dropDragOver = false)}
+        ondrop={onDropZoneDrop}
+      >
+        <div class="dropzone-inner">
+          <div class="dropzone-title">Dosyaları buraya bırakın</div>
+          <div class="np-meta">{inTauri ? "Kabuk yolu alır — dosyalar listelenir, asla taşınmaz/kopyalanmaz." : "Önizleme — yalnızca dosya adı ve boyut gösterilir."}</div>
+        </div>
+      </div>
+
+      <p class="island-hint">Kısayollar: <kbd>Ctrl</kbd>+<kbd>Space</kbd> island'a geçer / daralt-genişlet · <kbd>1</kbd>–<kbd>5</kbd> zamanlayıcı · <kbd>Esc</kbd> daralt</p>
     {:else if tab === "permissions"}
       <h1 class="page-title">İzinler</h1>
       <p class="page-sub">Her izin açıkça sizin açmanız içindir — varsayılan kapalıdır.</p>

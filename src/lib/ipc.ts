@@ -54,3 +54,56 @@ export async function listModules(): Promise<{ modules: ModuleDto[]; live: boole
 	if (live) return { modules: live, live: true };
 	return { modules: PREVIEW_MODULES, live: false };
 }
+
+/* ---------- Island ambient snapshot (host-pushed; never invented) ---------- */
+
+export interface NowPlaying {
+	player: string;
+	title: string;
+	artist: string;
+	position_secs: number;
+	length_secs: number | null;
+	playing: boolean;
+}
+
+export interface DownloadTask {
+	id: string;
+	label: string;
+	received_bytes: number;
+	total_bytes: number | null;
+	done: boolean;
+}
+
+export interface DroppedFile {
+	path: string;
+	bytes: number;
+}
+
+/** serde snake_case keys, matching orbit_core::island::IslandSnapshot. */
+export interface IslandSnapshot {
+	view: 'collapsed' | 'expanded';
+	active: unknown | null;
+	queued: number;
+	timer: unknown | null;
+	now_playing: NowPlaying | null;
+	downloads: DownloadTask[];
+	downloads_active: number;
+	dropped_files: DroppedFile[];
+}
+
+export async function islandSnapshot(): Promise<IslandSnapshot | null> {
+	return ipc<IslandSnapshot>('island_snapshot');
+}
+
+export async function islandDropFiles(paths: string[]): Promise<IslandSnapshot | null> {
+	return ipc<IslandSnapshot>('island_drop_files', { paths });
+}
+
+export async function islandClearDroppedFiles(): Promise<IslandSnapshot | null> {
+	return ipc<IslandSnapshot>('island_clear_dropped_files');
+}
+
+/** Start a timer in the host island. Returns the snapshot, or null offline. */
+export async function islandStartTimer(label: string, durationSecs: number): Promise<IslandSnapshot | null> {
+	return ipc<IslandSnapshot>('island_start_timer', { label, duration_secs: durationSecs });
+}

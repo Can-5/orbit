@@ -198,3 +198,110 @@ fn detect_installed_modules_classifies() {
 
     let _ = fs::remove_dir_all(&root);
 }
+
+#[test]
+fn island_ambient_now_playing_and_downloads() {
+    use orbit_core::island::{DownloadTask, DroppedFile, NowPlaying};
+
+    let mut m = IslandManager::new();
+    let snap = m.snapshot();
+    assert!(snap.now_playing.is_none());
+    assert_eq!(snap.downloads_active, 0);
+
+    // Now playing push + clear
+    m.set_now_playing(Some(NowPlaying {
+        player: "spotify_client".into(),
+        title: "A Change Is Gonna Come".into(),
+        artist: "Sam Cooke".into(),
+        position_secs: 41,
+        length_secs: Some(232),
+        playing: true,
+    }));
+    let snap = m.snapshot();
+    assert_eq!(snap.now_playing.as_ref().unwrap().artist, "Sam Cooke");
+    m.set_now_playing(None);
+    assert!(m.snapshot().now_playing.is_none());
+
+    // Download lifecycle: in-flight → progress → done (kept in recent list)
+    m.upsert_download(DownloadTask {
+        id: "dl-1".into(),
+        label: "fedora-kde.iso".into(),
+        received_bytes: 1_000_000,
+        total_bytes: Some(4_000_000_000),
+        done: false,
+    });
+    assert_eq!(m.snapshot().downloads_active, 1);
+    m.upsert_download(DownloadTask {
+        id: "dl-1".into(),
+        label: "fedora-kde.iso".into(),
+        received_bytes: 4_000_000_000,
+        total_bytes: Some(4_000_000_000),
+        done: true,
+    });
+    let snap = m.snapshot();
+    assert_eq!(snap.downloads_active, 0);
+    assert_eq!(snap.downloads.len(), 1);
+    assert!(snap.downloads[0].done);
+
+    // Empty label is refused
+    m.upsert_download(DownloadTask {
+        id: "dl-2".into(),
+        label: "   ".into(),
+        received_bytes: 1,
+        total_bytes: None,
+        done: false,
+    });
+    assert_eq!(m.snapshot().downloads.iter().filter(|d| d.id == "dl-2").count(), 0);
+
+    // Dropped files: listed and cleared
+    m.add_dropped_file(DroppedFile { path: "/tmp/a.png".into(), bytes: 12 });
+    m.add_dropped_file(DroppedFile { path: "".into(), bytes: 0 }); // refused
+    assert_eq!(m.snapshot().dropped_files.len(), 1);
+    m.clear_dropped_files();
+    assert!(m.snapshot().dropped_files.is_empty());
+}
+
+#[test]
+fn downloads_cap_and_eviction_order() {
+    use orbit_core::island::DownloadTask;
+
+    let mut m = IslandManager::new();
+    // Fill with 8 in-flight tasks (MAX_TRACK_DOWNLOADS)
+    for i in 0..8 {
+        m.upsert_download(DownloadTask {
+            id: format!("live-{i}"),
+            label: format!("live-{i}.bin"),
+            received_bytes: 1,
+            total_bytes: None,
+            done: false,
+        });
+    }
+    // 9th in-flight task is refused (no live transfer is silently evicted)
+    m.upsert_download(DownloadTask {
+        id: "live-9".into(),
+        label: "live-9.bin".into(),
+        received_bytes: 1,
+        total_bytes: None,
+        done: false,
+    });
+    assert!(m.snapshot().downloads.iter().all(|d| d.id != "live-9"));
+
+    // With the table full of live tasks, done tasks would be refused — so first
+    // mark four of the live ones done, then add six more finished tasks.
+    for i in 0..4 {
+        m.mark_download_done(&format!("live-{i}"));
+    }
+    for i in 4..10 {
+        m.upsert_download(DownloadTask {
+            id: format!("done-{i}"),
+            label: format!("done-{i}.bin"),
+            received_bytes: 1,
+            total_bytes: Some(1),
+            done: true,
+        });
+    }
+    let snap = m.snapshot();
+    let done_count = snap.downloads.iter().filter(|d| d.done).count();
+    assert_eq!(done_count, 4);
+    assert_eq!(snap.downloads.iter().filter(|d| !d.done).count(), 4);
+}
